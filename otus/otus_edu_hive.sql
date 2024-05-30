@@ -115,28 +115,83 @@ insert overwrite table otus.pokemons_data_pb partition(type1)
 select `(type1|special_group)?+.+`, lower(special_group) as special_group, type1
 from otus.pokemons_data;
 
+-- сбор статистики
+analyze table otus.pokemons_data_pb partition(type1) compute statistics for columns;
+
+-- характеристики таблицы
+describe formatted otus.pokemons_data_pb;
+
 select * from otus.pokemons_data_pb;
 
--- Таблица с количеством и долей по типу1
+-- Проверим содержание каталога и файла
 
-drop table if exists hive_hw.pokemons_type_count;
-create table hive_hw.pokemons_type_count
+dfs -ls hdfs://namenode:8020/user/hive/warehouse/otus.db/pokemons_data_pb ;
+dfs -cat hdfs://namenode:8020/user/hive/warehouse/otus.db/pokemons_data_pb/type1=Bug/000001_0;
+
+
+-- Таблица со статистиками по типу
+
+drop table if exists otus.pokemons_type_stats;
+create table otus.pokemons_type_stats
 (
 	type_name STRING,
 	type_count INT,
-	type_share FLOAT
+	type_share FLOAT,
+	avg_hp FLOAT,
+	avg_attack FLOAT,
+	avg_defense FLOAT,
+	avg_speed FLOAT
 )
+comment 'Таблица со статистиками (среднее, кол-во) по типу 1'
+row format delimited
+fields terminated by '|'
+stored as textfile;
 
-
-
+insert overwrite table otus.pokemons_type_stats
 select 
-	 special_group  as type_name
+	 type1  as type_name
 	,sum(1) as type_count
-	,round(100.00 * sum(1) / sum(sum(1)) over(), 1) as type_share
+	,round(1.00 * sum(1) / sum(sum(1)) over(), 4) as type_share
+	,avg(hp) as avg_hp
+	,avg(attack) as avg_attack
+	,avg(defense) as avg_defense
+	,avg(speed) as avg_speed
 from
-	hive_hw.pokemons_file_data
+	otus.pokemons_data_pb
 group by
-	special_group 
+	type1
+;
+
+select * from otus.pokemons_type_stats;
+
+-- Таблица с рангом типов по средним значениям метрик
+
+drop table if exists otus.pokemons_type_places;
+create table otus.pokemons_type_places
+(
+	type_name STRING,
+	place_hp INT,
+	place_attack INT,
+	place_defense INT,
+	place_speed INT
+)
+comment 'Таблица со статистиками (среднее, кол-во) по типу 1'
+row format delimited
+fields terminated by '|'
+stored as textfile;
+
+insert overwrite table otus.pokemons_type_places
+select 
+	 type_name
+	,row_number() over(order by avg_hp desc) as place_hp
+	,row_number() over(order by avg_attack desc) as place_attack
+	,row_number() over(order by avg_defense desc) as place_defense
+	,row_number() over(order by avg_speed desc) as place_speed
+from 
+	otus.pokemons_type_stats
+;
+
+select * from 
 
 
 
@@ -147,4 +202,12 @@ group by
 
 
 
+
+/*
+ * Заключительные мероприятия
+ * Останавливаем докер:
+ * docker-compose down
+ * docker system prune -a
+ * 
+ */
 
