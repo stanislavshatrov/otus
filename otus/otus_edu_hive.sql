@@ -175,7 +175,7 @@ create table otus.pokemons_type_places
 	place_defense INT,
 	place_speed INT
 )
-comment 'Таблица со статистиками (среднее, кол-во) по типу 1'
+comment 'Таблица с рангами типов по средним значнием метрик'
 row format delimited
 fields terminated by '|'
 stored as textfile;
@@ -191,10 +191,28 @@ from
 	otus.pokemons_type_stats
 ;
 
-select * from 
+select * from otus.pokemons_type_places;
 
+-- Таблица с покемонами, тип которых входит в ТОП-3 по скорости
 
+drop table if exists otus.pokemons_top3_types_speed;
+create table otus.pokemons_top3_types_speed like otus.pokemons_data_pb;
 
+insert overwrite table otus.pokemons_top3_types_speed partition(type1)
+select 
+	 *
+from 
+	otus.pokemons_data_pb as m
+left semi join
+	otus.pokemons_type_places as p
+on
+	m.type1 = p.type_name
+	and p.place_speed <= 3
+;
+
+select * from otus.pokemons_top3_types_speed;
+
+-- Построение "родословной" покемонов
 
 
 
