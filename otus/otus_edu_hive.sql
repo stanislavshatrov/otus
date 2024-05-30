@@ -213,12 +213,26 @@ on
 select * from otus.pokemons_top3_types_speed;
 
 -- Построение "родословной" покемонов
+-- "Визуально", если сложить цифры из поля ev_yield, то получится шаг эволюции для покемона
+-- при этом все цепочки идут друг за другом отсортированные по dexnum
 
+-- для отработки материал создадим view, а не table, используя инструменты работы с массивами
+create view otus.pokemons_evo_step as
+select
+	 dexnum
+	,name
+	,sum(cast(split(ev, ' ')[0] as int)) as evo_step
+from
+	otus.pokemons_data_pb
+lateral
+	view explode(split(ev_yield, ', ')) adTable as ev 
+group by
+	 dexnum
+	,name
+order by
+	dexnum ;
 
-
-
-
-
+select * from otus.pokemons_evo_step;
 
 
 /*
